@@ -29,6 +29,7 @@
  */
 
 #include <A2DPVolumeControl.h>
+#include "config.h"				   
 I2SStream i2s;
 BluetoothA2DPSink a2dp_sink(i2s);
 A2DPNoVolumeControl noVolumeControl;
@@ -154,7 +155,7 @@ void a2dp_init(){
   a2dp_sink.set_reconnect_delay(500);
   a2dp_sink.set_auto_reconnect(true, 2000);
 
-  a2dp_sink.start("EHU32");         // setting up bluetooth audio sink
+  a2dp_sink.start(BT_DEVICE_NAME);         // setting up bluetooth audio sink
   setFlag(a2dp_started);
   DEBUG_PRINTLN("A2DP: Started!");
   disp_mode=0;                      // set display mode to audio metadata on boot
