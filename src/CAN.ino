@@ -44,7 +44,7 @@
  */
 
 #include "driver/twai.h"
-
+#include "config.h"
 void OTAhandleTask(void* pvParameters);
 
 /* canISO_frameSpacing — inter-frame delay (in ms) between consecutive ISO 15765-2
@@ -354,6 +354,10 @@ void canProcessTask(void *pvParameters){
                       break;
           case 0x39:  canActionEhuButton9(btn_state, btn_ms_held);
                       break;
+          case 0x6D:  canActionEhuButtonLeft(btn_state, btn_ms_held);
+                      break;
+          case 0x6C:  canActionEhuButtonRight(btn_state, btn_ms_held);
+                      break;            
           default: break;
         }
         break;
@@ -421,7 +425,7 @@ void canProcessTask(void *pvParameters){
                 DEBUG_PRINT("coolant\n");
                 int CAN_data_coolant=RxMsg.data[5]-40;
                 snprintf(voltage_buffer, sizeof(voltage_buffer), " ");
-                snprintf(coolant_buffer, sizeof(coolant_buffer), "Coolant temp: %d%c%cC   ", CAN_data_coolant, 0xC2, 0xB0);
+                snprintf(coolant_buffer, sizeof(coolant_buffer), "Coolant: %d%c%cC   ", CAN_data_coolant, 0xC2, 0xB0);
                 setFlag(CAN_coolant_recvd);
                 break;
               }
@@ -478,7 +482,7 @@ void canProcessTask(void *pvParameters){
               unsigned short raw_coolant=(RxMsg.data[3]<<8 | RxMsg.data[4]);
               float CAN_data_coolant=raw_coolant;
               CAN_data_coolant/=10;
-              snprintf(coolant_buffer, sizeof(coolant_buffer), "Coolant temp: %.1f%c%cC   ", CAN_data_coolant, 0xC2, 0xB0);
+              snprintf(coolant_buffer, sizeof(coolant_buffer), "Coolant: %.1f%c%cC   ", CAN_data_coolant, 0xC2, 0xB0);
               setFlag(CAN_coolant_recvd);
               DEBUG_PRINT("coolant\n");
               break;
@@ -1025,4 +1029,34 @@ void canActionEhuButton9(bool btn_state, unsigned int btn_ms_held){
       ESP.restart();
     }
   }
+}
+// ============================================================
+// КНОПКИ "ВЛЕВО" и "ВПРАВО" на магнитоле
+// Долгое нажатие (>=400 мс) переключает трек (один раз)
+// ============================================================
+
+void canActionEhuButtonLeft(bool btn_state, unsigned int btn_ms_held){
+    static bool triggered = false;
+    if(btn_ms_held >= 400 && checkFlag(CAN_allowAutoRefresh) && checkFlag(bt_connected)){
+        if(!triggered){
+            triggered = true;
+            a2dp_sink.previous();
+            DEBUG_PRINTLN("DISP_MODE: Previous track");
+        }
+    } else {
+        triggered = false;
+    }
+}
+
+void canActionEhuButtonRight(bool btn_state, unsigned int btn_ms_held){
+    static bool triggered = false;
+    if(btn_ms_held >= 400 && checkFlag(CAN_allowAutoRefresh) && checkFlag(bt_connected)){
+        if(!triggered){
+            triggered = true;
+            a2dp_sink.next();
+            DEBUG_PRINTLN("DISP_MODE: Next track");
+        }
+    } else {
+        triggered = false;
+    }
 }
