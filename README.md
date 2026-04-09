@@ -127,7 +127,7 @@ The core functionality of EHU32 is unchanged, so this firmware **should** work o
 
 ---
 
-## Quick Start / Быстрый старт
+## Quick Start 
 
 1. **Get the components** — see the Hardware section for the bill of materials
 2. **Wire them up** — follow EHU32_wiring.pdf
@@ -136,6 +136,8 @@ The core functionality of EHU32 is unchanged, so this firmware **should** work o
 5. **Flash** the firmware to your ESP32
 6. **Connect CAN bus and AUX cable** to the OBD-II port (pins 3/11) and the radio's Aux input
 7. **Pair your phone** — EHU32 appears as a Bluetooth device once the radio is on
+
+## Быстрый старт
 1. **Получите компоненты** — см. раздел "Аппаратное обеспечение"
 2. **Подключите всё** — следуйте EHU32_wiring.pdf
 3. **Настройте Arduino IDE** — установите необходимые библиотеки и ядро ESP32 (см. "Примечания по компиляции")
@@ -162,12 +164,14 @@ Live diagnostic data demo (warning, contains music!) / Живые диагнос
 
 ## Hardware — Building it yourself / Аппаратное обеспечение
 
-### Bill of Materials / Необходимые компоненты
+### Bill of Materials 
 
 - **ESP32 module** — preferably an official Espressif module with an IPX antenna connector. **Look for boards with "Espressif" etched on the RF shield** (boards without this have been found to cause I2S audio issues, especially with iPhones and Huawei phones)
 - **IPX antenna** — any will do; recovered from an old laptop or bought cheaply online
 - **PCM5102A DAC module** — with configurable jumpers on the bottom; **configure the jumpers correctly before use**
 - **CAN transceiver module** — see table below
+
+### Необходимые компоненты
 - **ESP32 модуль** — желательно официальный модуль Espressif с разъёмом для IPX антенны. **Ищите платы с гравировкой "Espressif" на экране RF shield**
 - **IPX антенна** — подойдёт любая; можно восстановить из старого ноутбука или купить недорого
 - **PCM5102A DAC модуль** — с настраиваемыми перемычками на нижней стороне; **настройте перемычки правильно перед использованием**
