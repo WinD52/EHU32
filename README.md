@@ -46,10 +46,9 @@ This version adds two quality-of-life features to the original EHU32 project:
 
 ### Bluetooth Audio / Bluetooth Аудио
 
-- **Bluetooth (A2DP) audio** — output to an external I2S DAC (PCM5102A)
-- **Automatically reconnects** to your phone when the radio is started
-- **Bluetooth (A2DP) аудио** — вывод на внешний I2S DAC (PCM5102A)
-- **Автоматическое переподключение** к вашему телефону при включении магнитолы
+- **Bluetooth (A2DP) audio** — output to an external I2S DAC (PCM5102A) / - **Bluetooth (A2DP) аудио** — вывод на внешний I2S DAC (PCM5102A)
+- **Automatically reconnects** to your phone when the radio is started / - **Автоматическое переподключение** к вашему телефону при включении магнитолы
+
 
 ### Display Integration / Интеграция с дисплеем
 
