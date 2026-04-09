@@ -119,8 +119,12 @@ unsigned int utf8_to_utf16(const char* utf8_buffer, char* utf16_buffer){
     else {
       return utf16_bytecount/2;
     }
-    // only process supported chars, latin and extended latin works, cyrillic does not
-    if ((charint>=0x0000&&charint<=0x024F) || (charint>=0x1E00 && charint<=0x2C6F)){
+ // --------------------------------------------------------------
+    // Обработка символов: латиница — как есть, кириллица — транслитерация
+    // --------------------------------------------------------------
+    
+    // Латинские и поддерживаемые символы — оставляем как есть
+    if ((charint>=0x0000 && charint<=0x024F) || (charint>=0x1E00 && charint<=0x2C6F)){
       if (charint>=0x10000) {
         charint-=0x10000;
         utf16_buffer[utf16_bytecount++]=static_cast<char>((charint>>10)+0xD8);
@@ -133,6 +137,89 @@ unsigned int utf8_to_utf16(const char* utf8_buffer, char* utf16_buffer){
         utf16_buffer[utf16_bytecount++]=static_cast<char>(charint&0xFF);
       }
     }
+    // Кириллица (U+0400 – U+04FF) — транслитерация в латиницу
+    else if (charint >= 0x0400 && charint <= 0x04FF) {
+      const char* latin = nullptr;
+      switch(charint) {
+        // ===== ЗАГЛАВНЫЕ БУКВЫ =====
+        case 0x0410: latin = "A"; break;    // А
+        case 0x0411: latin = "B"; break;    // Б
+        case 0x0412: latin = "V"; break;    // В
+        case 0x0413: latin = "G"; break;    // Г
+        case 0x0414: latin = "D"; break;    // Д
+        case 0x0415: latin = "E"; break;    // Е
+        case 0x0401: latin = "Yo"; break;   // Ё
+        case 0x0416: latin = "Zh"; break;   // Ж
+        case 0x0417: latin = "Z"; break;    // З
+        case 0x0418: latin = "I"; break;    // И
+        case 0x0419: latin = "Y"; break;    // Й
+        case 0x041A: latin = "K"; break;    // К
+        case 0x041B: latin = "L"; break;    // Л
+        case 0x041C: latin = "M"; break;    // М
+        case 0x041D: latin = "N"; break;    // Н
+        case 0x041E: latin = "O"; break;    // О
+        case 0x041F: latin = "P"; break;    // П
+        case 0x0420: latin = "R"; break;    // Р
+        case 0x0421: latin = "S"; break;    // С
+        case 0x0422: latin = "T"; break;    // Т
+        case 0x0423: latin = "U"; break;    // У
+        case 0x0424: latin = "F"; break;    // Ф
+        case 0x0425: latin = "Kh"; break;   // Х
+        case 0x0426: latin = "Ts"; break;   // Ц
+        case 0x0427: latin = "Ch"; break;   // Ч
+        case 0x0428: latin = "Sh"; break;   // Ш
+        case 0x0429: latin = "Sh"; break;   // Щ
+        case 0x042A: latin = ""; break;     // Ъ
+        case 0x042B: latin = "Y"; break;    // Ы
+        case 0x042C: latin = ""; break;     // Ь
+        case 0x042D: latin = "E"; break;    // Э
+        case 0x042E: latin = "Yu"; break;   // Ю
+        case 0x042F: latin = "Ya"; break;   // Я
+        // ===== СТРОЧНЫЕ БУКВЫ =====
+        case 0x0430: latin = "a"; break;    // а
+        case 0x0431: latin = "b"; break;    // б
+        case 0x0432: latin = "v"; break;    // в
+        case 0x0433: latin = "g"; break;    // г
+        case 0x0434: latin = "d"; break;    // д
+        case 0x0435: latin = "e"; break;    // е
+        case 0x0451: latin = "yo"; break;   // ё
+        case 0x0436: latin = "zh"; break;   // ж
+        case 0x0437: latin = "z"; break;    // з
+        case 0x0438: latin = "i"; break;    // и
+        case 0x0439: latin = "y"; break;    // й
+        case 0x043A: latin = "k"; break;    // к
+        case 0x043B: latin = "l"; break;    // л
+        case 0x043C: latin = "m"; break;    // м
+        case 0x043D: latin = "n"; break;    // н
+        case 0x043E: latin = "o"; break;    // о
+        case 0x043F: latin = "p"; break;    // п
+        case 0x0440: latin = "r"; break;    // р
+        case 0x0441: latin = "s"; break;    // с
+        case 0x0442: latin = "t"; break;    // т
+        case 0x0443: latin = "u"; break;    // у
+        case 0x0444: latin = "f"; break;    // ф
+        case 0x0445: latin = "kh"; break;   // х
+        case 0x0446: latin = "ts"; break;   // ц
+        case 0x0447: latin = "ch"; break;   // ч
+        case 0x0448: latin = "sh"; break;   // ш
+        case 0x0449: latin = "sh"; break;   // щ
+        case 0x044A: latin = ""; break;     // ъ
+        case 0x044B: latin = "y"; break;    // ы
+        case 0x044C: latin = ""; break;     // ь
+        case 0x044D: latin = "e"; break;    // э
+        case 0x044E: latin = "yu"; break;   // ю
+        case 0x044F: latin = "ya"; break;   // я
+        default: latin = ""; break;
+      }
+      // Записываем латинскую замену в UTF-16
+      if (latin != nullptr) {
+        for (const char* p = latin; *p != '\0'; p++) {
+          utf16_buffer[utf16_bytecount++] = 0x00;
+          utf16_buffer[utf16_bytecount++] = *p;
+        }
+      }
+    }
+    // Остальные символы (не латиница и не кириллица) — игнорируем
   }
   return utf16_bytecount/2;  // amount of chars processed
 }
