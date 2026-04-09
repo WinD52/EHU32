@@ -1,6 +1,8 @@
 # EHU32 Documentation
 
 Welcome to the EHU32 documentation hub. EHU32 brings Bluetooth audio to Opel/Vauxhall vehicles by integrating with the onboard display and radio over MS-CAN.
+This fork adds a transliteration function for Cyrillic song tags to Latin to the original code.
+Track switching using the media buttons (left-previous, right-next) has also been added. To switch tracks, hold the button (approximately 400ms) to prevent the default function from triggering and switching tracks simultaneously.
 
 ← [Back to main README](../README.md) | [EHU32_wiring.pdf](../EHU32_wiring.pdf)
 
