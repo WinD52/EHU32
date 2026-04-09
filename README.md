@@ -2,7 +2,7 @@
 
 ESP32-based Bluetooth audio integration for Opel/Vauxhall vehicles with CAN bus display support.
 
-ESP32-based Bluetooth интеграция для автомобилей Opel/Vauxhall с поддержкой CAN дисплея.
+Основанная на ESP32, Bluetooth интеграция для автомобилей Opel/Vauxhall с поддержкой CAN вывода информации на дисплей БК.
 
 > ⚠️ **IMPORTANT: Before compiling, set your Arduino IDE partition scheme to "Minimal SPIFFS"!** Without this, you will get a **"Sketch too big"** compilation error. See Compilation Notes for full details.
 > ⚠️ **ВАЖНО: Перед компиляцией установите в Arduino IDE схему разделов "Minimal SPIFFS"!** Иначе вы получите ошибку **"Sketch too big"**. Подробнее см. в разделе "Примечания по компиляции".
