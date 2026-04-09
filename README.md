@@ -1,6 +1,13 @@
 # EHU32
 
 ESP32-based Bluetooth audio integration for Opel/Vauxhall vehicles with CAN bus display support.
+## ⚠️ This fork modifications (v3)
+
+This version adds two quality-of-life features to the original EHU32 project:
+
+1.  **Cyrillic transliteration:** Song tags in Russian are automatically transliterated to Latin characters, solving the issue of empty text on the display.
+2.  **Head unit track control:** You can switch tracks by **long-pressing (≈400 ms)** the **`<`** and **`>`** buttons on the car's radio panel. This works only in AUX mode and does not conflict with the standard button functions.
+
 
 > ⚠️ **IMPORTANT: Before compiling, set your Arduino IDE partition scheme to "Minimal SPIFFS"!**
 > Without this, you will get a **"Sketch too big"** compilation error. See [Compilation Notes](#compilation-notes) for full details.
