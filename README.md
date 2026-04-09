@@ -57,13 +57,27 @@ This version adds two quality-of-life features to the original EHU32 project:
 
 ---
 
-## Compatibility
+## ⚠️ Tested Configuration
 
-| Component | Supported Models |
-|---|---|
-| **Vehicles** | Astra H, Corsa D, Vectra C, Zafira B, Meriva A, Signum |
-| **Radios** | CD30, CD30MP3, CD40USB, CDC40Opera, CD70Navi, DVD90Navi |
-| **Displays** | CID (3-line), GID (1-line), GID (3-line), BID, TID |
+This fork has been **personally tested and is confirmed working** on the following setup:
+
+| Component | Model |
+|-----------|-------|
+| **Vehicle** | Opel Astra H |
+| **Radio** | CD30 (or CD30MP3) |
+| **Display** | GID (Graphic Info Display) |
+
+### What works:
+- ✅ Full Bluetooth audio streaming (A2DP)
+- ✅ Automatic reconnection
+- ✅ Track info display (Artist, Title, Album) on the car's screen
+- ✅ **Cyrillic transliteration** (Russian tags are converted to Latin)
+- ✅ **Head unit buttons** (`<` and `>` arrows) — long press (~400 ms) to switch tracks
+- ✅ Steering wheel controls (next/previous, play/pause)
+- ✅ OTA updates (button "8")
+
+### Not tested (but should work):
+The core functionality of EHU32 is unchanged, so this firmware **should** work on all vehicles, radios, and displays listed in the compatibility table above. However, the two new features (transliteration and head unit buttons) have only been tested on the configuration above.
 
 > **Requirement:** Your radio must have an **Aux input**.
 
