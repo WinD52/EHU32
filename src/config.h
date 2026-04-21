@@ -9,7 +9,7 @@
 // ============================================================================
 
 // --- Firmware Version ---
-#define EHU32_VERSION "0.9.5 mod v3 trans+BTN"
+#define EHU32_VERSION "0.9.5 mod v4.5"
 #define BT_DEVICE_NAME "Astra H Bluetooth"
 
 // --- I2S Audio Output (PCM5102A DAC) ---
