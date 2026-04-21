@@ -16,7 +16,7 @@
 
 ## 📌 About This Fork / Об этом форке
 
-This fork (v4.4) extends the original [EHU32 by PNKP237](https://github.com/PNKP237/EHU32) with several quality‑of‑life improvements:
+This fork (v4.5) extends the original [EHU32 by PNKP237](https://github.com/PNKP237/EHU32) with several quality‑of‑life improvements:
 
 | Feature / Функция | Description / Описание |
 |-------------------|------------------------|
