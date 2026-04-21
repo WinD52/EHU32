@@ -362,32 +362,65 @@ void canProcessTask(void *pvParameters){
         }
         break;
       }
-      case CAN_ID_SWC_BUTTON: {                                  // decodes steering wheel buttons
-        if(checkFlag(bt_connected) && RxMsg.data[0]==0x0 && checkFlag(CAN_allowAutoRefresh)){                     // makes sure "Aux" is displayed, otherwise forward/next buttons will have no effect
-          switch(RxMsg.data[1]){
-            case 0x81:{
-              if(!vehicle_UHP_present){   // only enable the play/pause functionality for vehicles without UHP otherwise it could conflict with the factory bluetooth hands-free
-                if(checkFlag(bt_audio_playing)){                 // upper left button (box with waves)
-                    a2dp_sink.pause(); 
-                  } else {
-                    a2dp_sink.play();
-                  }
-                }
-              break;
-            }
-            case 0x91:{
-              a2dp_sink.next();                     // upper right button (arrow up)
-              break;
-            }
-            case 0x92:{
-              a2dp_sink.previous();                 // lower right button (arrow down)
-              break;
-            }
-            default:    break;
-          }          
+      case CAN_ID_SWC_BUTTON: {
+  uint8_t state = RxMsg.data[0];
+  uint8_t btn   = RxMsg.data[1];
+  uint8_t hold  = RxMsg.data[2];
+
+  // ============================================================
+  // КНОПКА OK (0x84) — ЛЕВАЯ КРУТИЛКА НА РУЛЕ (НАЖАТИЕ)
+  // Удержание: срабатывает при hold >= 4 во время state == 0x01
+  // ============================================================
+  if (btn == 0x84) {
+    static bool triggered = false;
+    
+    if (state == 0x01 && hold >= 4 && !triggered && checkFlag(CAN_allowAutoRefresh)) {
+      triggered = true;
+      
+      // Циклическое переключение: только 0 и 1
+      if (disp_mode == 0) {
+        disp_mode = 1;
+        setFlag(disp_mode_changed);
+        setFlag(DIS_forceUpdate);
+        DEBUG_PRINTLN("DISP_MODE: Switching to vehicle data...");
+      } else {
+        disp_mode = 0;
+        setFlag(DIS_forceUpdate);
+        DEBUG_PRINTLN("DISP_MODE: Switching to audio metadata");
+      }
+    }
+    
+    if (state == 0x00) {
+      triggered = false;   // сброс при отпускании
+    }
+    break;
+  }
+
+  // ============================================================
+  // ОСТАЛЬНЫЕ КНОПКИ (0x81, 0x91, 0x92) — БЕЗ ИЗМЕНЕНИЙ
+  // ============================================================
+  if (checkFlag(bt_connected) && state == 0x00 && checkFlag(CAN_allowAutoRefresh)) {
+    switch (btn) {
+      case 0x81: {
+        if (!vehicle_UHP_present) {
+          if (checkFlag(bt_audio_playing)) a2dp_sink.pause();
+          else a2dp_sink.play();
         }
         break;
       }
+      case 0x91: {
+        a2dp_sink.next();
+        break;
+      }
+      case 0x92: {
+        a2dp_sink.previous();
+        break;
+      }
+      default: break;
+    }
+  }
+  break;
+}
       case CAN_ID_AC_BUTTON: {                               // AC panel button event
         if(eTaskGetState(canAirConMacroTaskHandle)==eSuspended){
           if(RxMsg.data[0]==0x01 && RxMsg.data[1]==0x17 && RxMsg.data[2]==0x0){     // button pressed, start save timestamp
