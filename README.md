@@ -21,7 +21,7 @@ PNKP237's original code works perfectly but is sparsely commented. BxnnyG added 
 
 ## 📌 This Fork Modifications / Модификации этого форка
 
-**Version: v4.5**
+**Version: v4.5.2**
 
 This version adds the following quality-of-life features to BxnnyG's documented codebase:
 Данная версия добавляет следующие улучшения в документированную кодовую базу BxnnyG:
