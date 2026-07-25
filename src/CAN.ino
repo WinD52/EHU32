@@ -374,7 +374,7 @@ void canProcessTask(void *pvParameters){
   if (btn == 0x84) {
     static bool triggered = false;
     
-    if (state == 0x01 && hold >= 4 && !triggered && checkFlag(CAN_allowAutoRefresh)) {
+    if (state == 0x01 && hold >= 4 && !triggered) {
       triggered = true;
       
       // Циклическое переключение: только 0 и 1
