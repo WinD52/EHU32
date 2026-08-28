@@ -1,92 +1,102 @@
+/*
+ * config.h — Central configuration file for EHU32 2.0
+ *
+ * Project: EHU32 2.0 (Opel MS-CAN Bluetooth Audio Gateway)
+ * Original Author: PNKP237 — https://github.com/PNKP237/EHU32
+ * Author & Maintainer: WinD52 — https://github.com/WinD52/EHU32
+ *
+ * Version: v1.0.0-alpha (Modern Platform Baseline: ESP-IDF 5.3 / Arduino Core 3.1)
+ *
+ * Centralized pin definitions, CAN bus identifiers and system build options.
+ * Target platforms: Opel/Vauxhall Astra H, Zafira B, Vectra C, Signum, Corsa D.
+ */
+
 #ifndef EHU32_CONFIG_H
 #define EHU32_CONFIG_H
 
-// ============================================================================
-// EHU32 Configuration
-// ============================================================================
-// Centralized pin definitions and CAN bus identifiers.
-// Modify pins here if your ESP32 board uses a different layout.
-// ============================================================================
+#include <Arduino.h>
+#include "driver/twai.h"
+#include "esp_a2dp_api.h"
+#include "esp_mac.h"
 
-// --- Firmware Version ---
-#define EHU32_VERSION "0.9.5 mod v4.5.2"
+// ============================================================================
+// Конфигурация прошивки и идентификаторы Bluetooth
+// ============================================================================
+#define EHU32_VERSION "1.0.0-alpha"
 #define BT_DEVICE_NAME "Astra H Bluetooth"
 
-// --- I2S Audio Output (PCM5102A DAC) ---
-#define I2S_PIN_BCK     26    // Bit Clock
-#define I2S_PIN_WS      25    // Word Select (LRCK)
-#define I2S_PIN_DATA    22    // Serial Data Out
+// ============================================================================
+// Макросы отладочного вывода в Serial (скорость 115200 бод)
+// ============================================================================
+#define EHU32_DEBUG
 
-// --- PCM5102A Control ---
-#define PCM_MUTE_CTL    23    // Soft-mute control (HIGH = unmuted)
-#define PCM_ENABLE      27    // Power enable for PCM5102A (active LOW)
-
-// --- CAN Bus (TWAI) ---
-// GPIO_NUM_x type is required by TWAI_GENERAL_CONFIG_DEFAULT() and esp_sleep_enable_ext0_wakeup()
-#define CAN_TX_PIN      GPIO_NUM_5    // CAN transceiver TX
-#define CAN_RX_PIN      GPIO_NUM_4    // CAN transceiver RX (also ext0 wakeup source)
+#ifdef EHU32_DEBUG
+  #define DEBUG_SERIAL(X)   Serial.begin(X)
+  #define DEBUG_PRINT(X)    Serial.print(X)
+  #define DEBUG_PRINTLN(X)  Serial.println(X)
+  #define DEBUG_PRINTF(...) Serial.printf(__VA_ARGS__)
+#else
+  #define DEBUG_SERIAL(X)
+  #define DEBUG_PRINT(X)
+  #define DEBUG_PRINTLN(X)
+  #define DEBUG_PRINTF(...)
+#endif
 
 // ============================================================================
-// CAN Bus Message Identifiers — MS-CAN (95 kbit/s)
+// Аудиотракт I2S (ЦАП PCM5102A -> Аналоговый вход AUX магнитолы CD30)
 // ============================================================================
-// Reference: https://github.com/JJToB/Car-CAN-Message-DB
-// These identifiers are specific to Opel/Vauxhall MS-CAN bus
-// ============================================================================
-
-// --- Steering Wheel / Rotary Controls ---
-// These IDs are used both for transmitting simulated inputs and
-// receiving actual hardware events from the radio and steering wheel.
-#define CAN_ID_SWC_SCROLL        0x201  // Steering wheel scroll / radio source button events
-                                        // TX: simulate scroll up/down; RX: radio panel button presses (buttons 0-9)
-#define CAN_ID_SWC_BUTTON        0x206  // Steering wheel scroll button / SWC events
-                                        // TX: simulate scroll press/release; RX: SWC media controls (play, next, prev)
-
-// --- Climate Control ---
-#define CAN_ID_AC_BUTTON         0x208  // AC panel selector knob events
-                                        // TX: simulate AC knob input; RX: AC panel press/release events
-
-// --- Diagnostic Requests (TX) ---
-#define CAN_ID_DIS_REQUEST       0x246  // Request to DIS (Driver Information System)
-                                        // Used for: speed, coolant temp, battery voltage
-#define CAN_ID_ECC_REQUEST       0x248  // Request to ECC (Electronic Climate Control)
-                                        // Used for: ambient temp, coolant (alternative path), RPM, speed
-
-// --- Diagnostic Responses (RX) ---
-#define CAN_ID_DIS_RESPONSE      0x546  // DIS measurement block response
-                                        // Contains: coolant temp (0x0B), speed (0x0E), battery voltage (0x13)
-#define CAN_ID_ECC_RESPONSE      0x548  // ECC measurement block response
-                                        // Contains: battery voltage (0x07), coolant temp (0x10), speed+RPM (0x11)
-
-// --- Display Control ---
-#define CAN_ID_DISPLAY_WRITE     0x2C1  // Flow control / display update prevention
-                                        // TX: prevent radio display update (ISO 15765-2 flow control frame)
-                                        // RX: flow control reply from display unit (frame spacing, continue/abort)
-
-// --- Radio / Headunit ---
-#define CAN_ID_RADIO_DISPLAY     0x6C1  // Radio display update request (ISO 15765-2 first frame)
-                                        // RX: radio requests to write text to center console display
-                                        // TX: DummyFirstFrame used to invalidate radio's display call
-#define CAN_ID_RADIO_POWER       0x501  // Radio power state
-                                        // RX: data byte 3 == 0x18 signals radio/display shutdown
-
-// --- Module Presence (RX) ---
-#define CAN_ID_UHP_PRESENCE      0x6C7  // UHP (Universal Handsfree Phone) module status
-                                        // Presence detected during startup; disables play/pause via SWC if found
-#define CAN_ID_ECC_PRESENCE      0x6C8  // ECC (Electronic Climate Control) module status
-                                        // Presence switches measurement requests from DIS to ECC
-
-// --- Reserved / Future Use ---
-#define CAN_ID_RESERVED_4E8      0x4E8  // Queued by receive task; not yet processed (reserved for future use)
+#define I2S_PIN_BCK     26    // Тактовый сигнал битовой синхронизации (Bit Clock)
+#define I2S_PIN_WS      25    // Выбор канала / тактовый сигнал слова (LRCK)
+#define I2S_PIN_DATA    22    // Последовательная линия передачи данных (Serial Data Out)
 
 // ============================================================================
-// OTA WiFi Configuration
+// Управление питанием и аппаратным Mute ЦАПа PCM5102A
 // ============================================================================
-// Note: The hotspot SSID is generated dynamically at runtime as "EHU32-XXYY"
-// where XXYY are the last two bytes of the device's soft-AP MAC address.
-// This makes each unit uniquely identifiable on the network.
-// To change the password, update OTA_PASSWORD here — it is applied to both
-// WiFi.softAP() and ArduinoOTA.setPassword() in OTA.ino automatically.
-#define OTA_PASSWORD     "ehu32updater"
-#define OTA_TIMEOUT_MS   600000   // 10 minutes timeout before auto-reset
+#define PCM_MUTE_CTL    23    // Soft-mute управление (HIGH = звук включен, LOW = Mute)
+#define PCM_ENABLE      27    // Включение питания ЦАП и CAN-трансивера (активный LOW)
+
+// ============================================================================
+// Шина CAN (Аппаратный контроллер TWAI микроконтроллера ESP32)
+// ============================================================================
+#define CAN_TX_PIN      GPIO_NUM_5    // Линия передачи TXD на CAN-трансивер
+#define CAN_RX_PIN      GPIO_NUM_4    // Линия приема RXD (источник пробуждения ext0 из сна)
+
+// ============================================================================
+// Идентификаторы сообщений шины Opel MS-CAN (95.238 кбит/с)
+// Справочник: https://github.com/JJToB/Car-CAN-Message-DB
+// ============================================================================
+
+// --- Рулевое колесо и органы управления магнитолы ---
+#define CAN_ID_SWC_SCROLL        0x201  // Кнопки магнитолы 0-9 / энкодер громкости
+#define CAN_ID_SWC_BUTTON        0x206  // Кнопки рулевого колеса (Play, Next, Prev, OK)
+
+// --- Блок климат-контроля (ECC) ---
+#define CAN_ID_AC_BUTTON         0x208  // События центрального энкодера и кнопки панели климата
+
+// --- Диагностические запросы параметров (TX, протокол KWP-2000) ---
+#define CAN_ID_DIS_REQUEST       0x246  // Запрос параметров к дисплею DIS (скорость, ОЖ, вольтаж)
+#define CAN_ID_ECC_REQUEST       0x248  // Запрос параметров к климату ECC (обороты, скорость, ОЖ)
+
+// --- Диагностические ответы параметров (RX, протокол KWP-2000) ---
+#define CAN_ID_DIS_RESPONSE      0x546  // Ответ с блоками измерений от дисплея DIS
+#define CAN_ID_ECC_RESPONSE      0x548  // Ответ с блоками измерений от климат-контроля ECC
+
+// --- Управление и синхронизация дисплея ---
+#define CAN_ID_DISPLAY_WRITE     0x2C1  // Flow Control от дисплея / кадр блокировки радио (0x30)
+#define CAN_ID_RADIO_DISPLAY     0x6C1  // Кадры обновления экрана от магнитолы (First Frame DoCAN)
+#define CAN_ID_RADIO_POWER       0x501  // Состояние питания магнитолы (байт 3 == 0x18 — сон)
+
+// --- Контроль присутствия штатных модулей в шине (RX) ---
+#define CAN_ID_UHP_PRESENCE      0x6C7  // Статус присутствия штатного блока громкой связи UHP4
+#define CAN_ID_ECC_PRESENCE      0x6C8  // Статус присутствия блока климат-контроля ECC
+
+// --- Резервные идентификаторы ---
+#define CAN_ID_RESERVED_4E8      0x4E8  // Зарезервировано для будущих расширений
+
+// ============================================================================
+// Конфигурация беспроводного обновления OTA (Wi-Fi SoftAP)
+// ============================================================================
+#define OTA_PASSWORD     "ehu32updater" // Пароль точки доступа и авторизации прошивки
+#define OTA_TIMEOUT_MS   600000         // Таймаут ожидания прошивки (10 минут) до авторебута
 
 #endif // EHU32_CONFIG_H
