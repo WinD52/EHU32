@@ -271,6 +271,8 @@ void canWatchdogTask(void *pvParameters){
       DEBUG_PRINTLN("WATCHDOG: Triggering software reset...");
       vTaskDelay(pdMS_TO_TICKS(100));
       a2dp_shutdown();
+    } else {
+      DEBUG_PRINTLN("WATCHDOG: Reset successful.");
     }
     vTaskDelay(pdMS_TO_TICKS(1000));
   }
