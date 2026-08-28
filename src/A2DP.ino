@@ -1,243 +1,292 @@
 /*
  * A2DP.ino — Bluetooth A2DP audio sink and AVRCP metadata handling
  *
- * This file implements EHU32's Bluetooth audio functionality:
- *   - Starts a Bluetooth A2DP sink named "EHU32" that any phone/tablet/PC
- *     can connect to and stream audio from.
- *   - Outputs the received audio stream over I2S to a PCM5102A stereo DAC
- *     (configured for GPIO 26=BCK, 25=WS/LRCK, 22=DATA).
- *   - Receives AVRCP metadata (title, artist, album) and writes it to the
- *     shared text buffers, triggering a display update when all three are
- *     received.
- *   - Handles play/pause/next/previous via AVRCP commands sent from
- *     canProcessTask (steering wheel buttons).
- *   - Mutes the PCM5102A (via PCM_MUTE_CTL) when audio is paused/stopped.
- *   - Attempts automatic reconnection every 2 seconds if no source is
- *     connected.
+ * Project: EHU32 (Opel MS-CAN Bluetooth Audio Gateway)
+ * Original Author: PNKP237 — https://github.com/PNKP237/EHU32
+ * Author & Maintainer: WinD52 — https://github.com/WinD52/EHU32
  *
- * Volume control is disabled (A2DPNoVolumeControl) because volume is managed
- * by the car's head unit amplifier via the CAN bus.  Allowing A2DP volume
- * control would result in a confusing secondary volume layer.
+ * Version: v1.0.0-alpha (Modern Platform Baseline: ESP-IDF 5.3 / Arduino Core 3.1)
  *
- * Dependencies:
- *   - ESP32-AudioTools (AudioTools.h, I2SStream)
- *   - ESP32-A2DP (BluetoothA2DPSink.h)
- *   - A2DPVolumeControl.h (A2DPNoVolumeControl class)
- *   - Global variables and RTOS handles declared in EHU32.ino
- *
- * Author: PNKP237 — https://github.com/PNKP237/EHU32
+ * Audio Architecture:
+ *   - Native ESP-IDF 5.x I2S Standard driver (driver/i2s_std.h)
+ *   - 32-bit stereo Philips slot configuration for PCM5102A DAC
+ *   - Clean linear 32-bit fixed-point DSP headroom (-6.02 dBFS / 1.05 Vrms)
+ *   - Zero non-linear waveshaping distortion; zero DMA sample dropouts (portMAX_DELAY)
+ *   - Dynamic I2S clock reconfiguration for seamless 44.1 kHz / 48.0 kHz switching
+ *   - Nominal Bluetooth Classic RF transmit power configured to +6 dBm (ESP_PWR_LVL_P6)
  */
 
-#include <A2DPVolumeControl.h>
-#include "config.h"				   
-I2SStream i2s;
-BluetoothA2DPSink a2dp_sink(i2s);
-A2DPNoVolumeControl noVolumeControl;
+#include "config.h"
+#include "BluetoothA2DPSink.h"
+#include "driver/i2s_std.h"
+#include "esp_gap_bt_api.h"
 
-/* avrc_metadata_callback() — called by the ESP32 Bluetooth stack whenever the
- * connected A2DP source sends AVRCP metadata for the current track.
- *
- * Parameters:
- *   md_type — bitmask identifying the metadata field:
- *     0x01  ESP_AVRC_MD_ATTR_TITLE  — track title   → title_buffer
- *     0x02  ESP_AVRC_MD_ATTR_ARTIST — artist name    → artist_buffer
- *     0x04  ESP_AVRC_MD_ATTR_ALBUM  — album name     → album_buffer
- *   data2   — null-terminated UTF-8 string
- *
- * Once all three fields have been received (all three *_recvd flags set), the
- * individual flags are cleared and DIS_forceUpdate is set to trigger an
- * immediate display refresh in A2DP_EventHandler().
- *
- * BufferSemaphore is held while writing to prevent canDisplayTask from reading
- * a partially updated buffer.
- */
-// updates the buffers
-void avrc_metadata_callback(uint8_t md_type, const uint8_t *data2) {  // fills the song title buffer with data, updates text_lenght with the amount of chars
-  xSemaphoreTake(BufferSemaphore, portMAX_DELAY);      // take the semaphore as a way to prevent the buffers being accessed elsewhere
-  switch(md_type){
-    case 0x1: memset(title_buffer, 0, sizeof(title_buffer));
-              snprintf(title_buffer, sizeof(title_buffer), "%s", data2);
-              //DEBUG_PRINTF("\nA2DP: Received title: \"%s\"", data2);
-              setFlag(md_title_recvd);
-              break;
-    case 0x2: memset(artist_buffer, 0, sizeof(artist_buffer));
-              snprintf(artist_buffer, sizeof(artist_buffer), "%s", data2);
-              //DEBUG_PRINTF("\nA2DP: Received artist: \"%s\"", data2);
-              setFlag(md_artist_recvd);
-              break;
-    case 0x4: memset(album_buffer, 0, sizeof(album_buffer));
-              snprintf(album_buffer, sizeof(album_buffer), "%s", data2);
-              //DEBUG_PRINTF("\nA2DP: Received album: \"%s\"", data2);
-              setFlag(md_album_recvd);
-              break;
-    default:  break;
+static BluetoothA2DPSink a2dp_sink;
+static i2s_chan_handle_t tx_handle = NULL;
+static uint32_t current_sample_rate = 44100;
+static volatile uint16_t pending_sample_rate = 0;
+
+// 32-битный статический DSP буфер для линейной обработки сэмплов
+static int32_t dsp_buffer_32bit[512];
+
+// ============================================================================
+// audio_data_stream_32bit_dsp — Линейный 32-битный DSP конвейер (1.05 Vrms Headroom)
+// ============================================================================
+static void audio_data_stream_32bit_dsp(const uint8_t *data, uint32_t length) {
+  if (tx_handle == NULL || data == NULL || length == 0) return;
+
+  // Динамическая переконфигурация тактового генератора I2S при смене трека (44.1k <-> 48k)
+  if (pending_sample_rate != 0 && pending_sample_rate != current_sample_rate) {
+    uint16_t new_rate = pending_sample_rate;
+    i2s_channel_disable(tx_handle);
+    i2s_std_clk_config_t clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(new_rate);
+    if (i2s_channel_reconfig_std_clock(tx_handle, &clk_cfg) == ESP_OK) {
+      current_sample_rate = new_rate;
+      DEBUG_PRINTF("[I2S] Sample rate dynamically reconfigured to %u Hz\n", new_rate);
+    }
+    i2s_channel_enable(tx_handle);
+    pending_sample_rate = 0;
   }
-  xSemaphoreGive(BufferSemaphore);
+
+  const int16_t *src = (const int16_t *)data;
+  size_t total_samples = length / sizeof(int16_t);
+  size_t processed = 0;
+
+  while (processed < total_samples) {
+    size_t chunk_samples = total_samples - processed;
+    if (chunk_samples > 512) chunk_samples = 512;
+
+    for (size_t i = 0; i < chunk_samples; i++) {
+      // 1. Знаковое расширение 16-бит исходного звука в 32-битное пространство со знаком
+      int32_t s32 = ((int32_t)src[processed + i]) << 16;
+
+      // 2. Чистое линейное масштабирование 0.50x (-6.02 dBFS Headroom)
+      // Опускает пиковый размах 2.1 Vrms точно до 1.05 Vrms (стандарт входа AUX CD30).
+      // Все 16 бит исходного звука сохраняются на 100% без усечения и без нелинейной "каши"!
+      s32 = s32 >> 1;
+
+      dsp_buffer_32bit[i] = s32;
+    }
+
+    // 3. Непрерывная передача в DMA без потерь сэмплов и без разрывов фазы
+    size_t bytes_to_write = chunk_samples * sizeof(int32_t);
+    size_t bytes_written = 0;
+    i2s_channel_write(tx_handle, (const char *)dsp_buffer_32bit, bytes_to_write, &bytes_written, portMAX_DELAY);
+
+    processed += chunk_samples;
+  }
+}
+
+// Фиксация новой частоты дискретизации без блокировок в Bluedroid коллбэке
+static void a2dp_sample_rate_changed(uint16_t rate) {
+  if (rate != 0 && rate != current_sample_rate) {
+    pending_sample_rate = rate;
+  }
+}
+
+// ============================================================================
+// avrc_metadata_callback — Прием текстовых тегов AVRCP (Название, Артист, Альбом)
+// ============================================================================
+void avrc_metadata_callback(uint8_t md_type, const uint8_t *data2) {
+  if(xSemaphoreTake(BufferSemaphore, pdMS_TO_TICKS(10)) == pdTRUE){
+    switch(md_type){
+      case ESP_AVRC_MD_ATTR_TITLE:
+        memset(title_buffer, 0, sizeof(title_buffer));
+        snprintf(title_buffer, sizeof(title_buffer), "%s", (const char*)data2);
+        setFlag(md_title_recvd);
+        DEBUG_PRINTF("[AVRCP META] Title:  \"%s\"\n", title_buffer);
+        break;
+      case ESP_AVRC_MD_ATTR_ARTIST:
+        memset(artist_buffer, 0, sizeof(artist_buffer));
+        snprintf(artist_buffer, sizeof(artist_buffer), "%s", (const char*)data2);
+        setFlag(md_artist_recvd);
+        DEBUG_PRINTF("[AVRCP META] Artist: \"%s\"\n", artist_buffer);
+        break;
+      case ESP_AVRC_MD_ATTR_ALBUM:
+        memset(album_buffer, 0, sizeof(album_buffer));
+        snprintf(album_buffer, sizeof(album_buffer), "%s", (const char*)data2);
+        setFlag(md_album_recvd);
+        DEBUG_PRINTF("[AVRCP META] Album:  \"%s\"\n", album_buffer);
+        break;
+      default: break;
+    }
+    xSemaphoreGive(BufferSemaphore);
+  }
+
+  // Строгое сохранение оригинальной логики WinD52 (требуются все 3 поля)
   if(checkFlag(md_title_recvd) && checkFlag(md_artist_recvd) && checkFlag(md_album_recvd)){
-    setFlag(DIS_forceUpdate);                                                      // lets the eventHandler task know that there's new data to be written to the display
+    DEBUG_PRINTLN("[AVRCP META] All 3 tags received -> Updating GID/CID display buffer");
+    setFlag(DIS_forceUpdate);
     clearFlag(md_title_recvd);
     clearFlag(md_artist_recvd);
     clearFlag(md_album_recvd);
   }
 }
 
-/* a2dp_connection_state_changed() — A2DP connection state callback.
- *
- * State machine:
- *   state=0 (ESP_A2D_CONNECTION_STATE_DISCONNECTED) — no source connected.
- *            Clears bt_connected; sets bt_state_changed for display update.
- *   state=1 (ESP_A2D_CONNECTION_STATE_CONNECTING)   — connection in progress.
- *            Clears bt_connected (not yet fully connected).
- *   state=2 (ESP_A2D_CONNECTION_STATE_CONNECTED)    — source connected.
- *            Sets bt_connected; sets bt_state_changed for display update.
- */
-// a2dp bt connection callback
-void a2dp_connection_state_changed(esp_a2d_connection_state_t state, void *ptr){    // callback for bluetooth connection state change
-  if(state==2){                                                                     // state=0 -> disconnected, state=1 -> connecting, state=2 -> connected
-    setFlag(bt_connected);
-  } else {
-    clearFlag(bt_connected);
+// ============================================================================
+// a2dp_connection_state_changed — Коллбэк статуса Bluetooth-соединения
+// ============================================================================
+void a2dp_connection_state_changed(esp_a2d_connection_state_t state, void *ptr){
+  if(state == ESP_A2D_CONNECTION_STATE_CONNECTED){
+    DEBUG_PRINTF("\n>>> [A2DP EVENT] Smartphone CONNECTED! Peer: %s <<<\n", a2dp_sink.get_peer_name());
+    setFlag(flag_bt_connected);
+  } else if(state == ESP_A2D_CONNECTION_STATE_DISCONNECTED){
+    DEBUG_PRINTLN("\n>>> [A2DP EVENT] Smartphone DISCONNECTED <<<");
+    clearFlag(flag_bt_connected);
   }
   setFlag(bt_state_changed);
 }
 
-/* a2dp_audio_state_changed() — A2DP audio state callback.
- *
- * State machine:
- *   state=1 (ESP_A2D_AUDIO_STATE_STOPPED)  — audio stream stopped / paused.
- *            Clears bt_audio_playing; sets audio_state_changed.
- *            A2DP_EventHandler will mute the PCM5102A (PCM_MUTE_CTL LOW).
- *   state=2 (ESP_A2D_AUDIO_STATE_STARTED)  — audio stream started / playing.
- *            Sets bt_audio_playing; sets audio_state_changed.
- *            A2DP_EventHandler will unmute the PCM5102A (PCM_MUTE_CTL HIGH).
- */
-// a2dp audio state callback
-void a2dp_audio_state_changed(esp_a2d_audio_state_t state, void *ptr){  // callback for audio playing/stopped
-  if(state==2){                                                         //  state=1 -> stopped, state=2 -> playing
+// ============================================================================
+// a2dp_audio_state_changed — Коллбэк активности аудиопотока (Play / Pause)
+// ============================================================================
+void a2dp_audio_state_changed(esp_a2d_audio_state_t state, void *ptr){
+  if(state == ESP_A2D_AUDIO_STATE_STARTED){
+    DEBUG_PRINTLN("[A2DP AUDIO] Stream status: PLAYING (Un-muting PCM5102A)");
     setFlag(bt_audio_playing);
-  } else {
+  } else if(state == ESP_A2D_AUDIO_STATE_STOPPED || state == ESP_A2D_AUDIO_STATE_REMOTE_SUSPEND){
+    DEBUG_PRINTLN("[A2DP AUDIO] Stream status: PAUSED / STOPPED (Muting PCM5102A)");
     clearFlag(bt_audio_playing);
   }
   setFlag(audio_state_changed);
 }
 
-/* a2dp_init() — initialise the Bluetooth A2DP sink and I2S output.
- *
- * I2S pin assignment (PCM5102A DAC):
- *   BCK  (bit clock)  = GPIO 26
- *   WS   (word select / LRCK) = GPIO 25
- *   DATA (serial data)        = GPIO 22
- *
- * Volume control: A2DPNoVolumeControl is installed to prevent the A2DP stack
- * from scaling down audio samples.  The car amplifier provides volume control
- * at the hardware level; software volume reduction would degrade dynamic range.
- *
- * Auto-reconnect: enabled with a 2000 ms initial delay and 500 ms between
- * retries, so the phone reconnects automatically the next time the car starts.
- *
- * After init:
- *   - a2dp_started flag is set.
- *   - disp_mode is set to 0 (audio metadata).
- *   - A "Waiting for connection…" message is written to the display.
- */
-// start A2DP audio service
+// ============================================================================
+// i2s_driver_init — Инициализация нативного драйвера I2S чипа ESP32 (32 бита)
+// ============================================================================
+static bool i2s_driver_init(uint32_t sample_rate = 44100) {
+  i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
+  chan_cfg.dma_desc_num = 8;
+  chan_cfg.dma_frame_num = 256;
+  chan_cfg.auto_clear = true;
+
+  if (i2s_new_channel(&chan_cfg, &tx_handle, NULL) != ESP_OK) {
+    DEBUG_PRINTLN("[I2S ERROR] Channel creation failed");
+    return false;
+  }
+
+  // Честный 32-битный стерео Philips слот для PCM5102A
+  i2s_std_config_t std_cfg = {
+    .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(sample_rate),
+    .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_32BIT, I2S_SLOT_MODE_STEREO),
+    .gpio_cfg = {
+      .mclk = I2S_GPIO_UNUSED,
+      .bclk = (gpio_num_t)I2S_PIN_BCK,
+      .ws   = (gpio_num_t)I2S_PIN_WS,
+      .dout = (gpio_num_t)I2S_PIN_DATA,
+      .din  = I2S_GPIO_UNUSED,
+      .invert_flags = { .mclk_inv = false, .bclk_inv = false, .ws_inv = false },
+    },
+  };
+
+  if (i2s_channel_init_std_mode(tx_handle, &std_cfg) != ESP_OK) {
+    DEBUG_PRINTLN("[I2S ERROR] Standard mode init failed");
+    i2s_del_channel(tx_handle);
+    tx_handle = NULL;
+    return false;
+  }
+  if (i2s_channel_enable(tx_handle) != ESP_OK) {
+    DEBUG_PRINTLN("[I2S ERROR] Channel enable failed");
+    i2s_del_channel(tx_handle);
+    tx_handle = NULL;
+    return false;
+  }
+  DEBUG_PRINTLN("[I2S] Native 32-bit DSP driver initialized (32-bit slots, 1.05 Vrms Headroom)");
+  return true;
+}
+
+// ============================================================================
+// a2dp_init — Запуск Bluetooth A2DP Sink и конфигурация мощности передатчика
+// ============================================================================
 void a2dp_init(){
-  auto i2s_conf=i2s.defaultConfig();
-  i2s_conf.pin_bck=I2S_PIN_BCK;
-  i2s_conf.pin_ws=I2S_PIN_WS;
-  i2s_conf.pin_data=I2S_PIN_DATA;
-  i2s.begin(i2s_conf);
+  DEBUG_PRINTLN("[A2DP] Initializing native 32-bit I2S driver...");
+  if (!i2s_driver_init(44100)) {
+    DEBUG_PRINTLN("[A2DP FATAL] I2S initialization failed, rebooting...");
+    vTaskDelay(pdMS_TO_TICKS(500));
+    ESP.restart();
+  }
+
+  a2dp_sink.set_stream_reader(audio_data_stream_32bit_dsp, false);
+  a2dp_sink.set_sample_rate_callback(a2dp_sample_rate_changed);
   a2dp_sink.set_avrc_metadata_callback(avrc_metadata_callback);
   a2dp_sink.set_avrc_metadata_attribute_mask(ESP_AVRC_MD_ATTR_TITLE | ESP_AVRC_MD_ATTR_ARTIST | ESP_AVRC_MD_ATTR_ALBUM);
   a2dp_sink.set_on_connection_state_changed(a2dp_connection_state_changed);
   a2dp_sink.set_on_audio_state_changed(a2dp_audio_state_changed);
-  a2dp_sink.set_volume_control(&noVolumeControl);
   a2dp_sink.set_reconnect_delay(500);
   a2dp_sink.set_auto_reconnect(true, 2000);
 
-  a2dp_sink.start(BT_DEVICE_NAME);         // setting up bluetooth audio sink
+  DEBUG_PRINTF("[A2DP] Starting Bluetooth sink service with name: \"%s\"...\n", BT_DEVICE_NAME);
+  a2dp_sink.start(BT_DEVICE_NAME);
+  
+  // Установка номинальной мощности Bluetooth Classic (+6 dBm / ESP_PWR_LVL_P6)
+  esp_bredr_tx_power_set(ESP_PWR_LVL_P6, ESP_PWR_LVL_P6);
+
   setFlag(a2dp_started);
-  DEBUG_PRINTLN("A2DP: Started!");
-  disp_mode=0;                      // set display mode to audio metadata on boot
-  writeTextToDisplay(1, "EHU32 v" EHU32_VERSION, "Bluetooth on", "Waiting for connection...");
+  DEBUG_PRINTLN(">>> [A2DP] Bluetooth Stack is ONLINE and DISCOVERABLE! <<<");
+  disp_mode = 0;
+  writeTextToDisplay(true, (char*)"EHU32 v" EHU32_VERSION, (char*)"Bluetooth on", (char*)"Waiting for connection...");
 }
 
-/* A2DP_EventHandler() — process Bluetooth / A2DP events; called every 10 ms from
- *                        eventHandlerTask (Core 1).
- *
- * Handled events (in order):
- *
- *   ehu_started && !a2dp_started
- *     — First time the radio is detected on the bus.  Calls a2dp_init() to start
- *       Bluetooth.  This deferred start avoids running Bluetooth during the CAN
- *       setup phase where timing is critical.
- *
- *   DIS_forceUpdate && disp_mode==0 && CAN_allowAutoRefresh && bt_audio_playing
- *     — New metadata has arrived and "Aux" is active.  Calls writeTextToDisplay()
- *       to push the track info to the car display.
- *
- *   bt_state_changed && disp_mode==0
- *     — BT connection state changed.  Shows "Bluetooth connected" (with peer name)
- *       or "Bluetooth disconnected" on the display.  Also applies max volume (127)
- *       on connection as a workaround for some sources that connect at low volume.
- *
- *   audio_state_changed && bt_connected && disp_mode==0
- *     — Audio play/pause state changed.  If playing, unmutes the DAC and forces
- *       a metadata display update.  If paused/stopped, mutes the DAC and shows
- *       "Bluetooth connected / Paused".
- */
-// handles events such as connecion/disconnection and audio play/pause
+// ============================================================================
+// A2DP_EventHandler — Диспетчеризация событий связи и софт-мьюта ЦАПа
+// ============================================================================
 void A2DP_EventHandler(){
-  if(checkFlag(ehu_started) && !checkFlag(a2dp_started)){             // this enables bluetooth A2DP service only after the radio is started
+  if(checkFlag(ehu_started) && !checkFlag(a2dp_started)){
     a2dp_init();
   }
 
-  if(checkFlag(DIS_forceUpdate) && disp_mode==0 && checkFlag(CAN_allowAutoRefresh) && checkFlag(bt_audio_playing)){                       // handles data processing for A2DP AVRC data events
+  if(checkFlag(DIS_forceUpdate) && disp_mode == 0 && checkFlag(CAN_allowAutoRefresh) && checkFlag(bt_audio_playing)){
     writeTextToDisplay();
   }
 
-  if(checkFlag(bt_state_changed) && disp_mode==0){                                   // mute external DAC when not playing
-    if(checkFlag(bt_connected)){
-      a2dp_sink.set_volume(127);        // workaround to ensure max volume being applied on successful connection
-      writeTextToDisplay(1, "", "Bluetooth connected", (char*)a2dp_sink.get_peer_name());
+  if(checkFlag(bt_state_changed) && disp_mode == 0){
+    if(checkFlag(flag_bt_connected)){
+      a2dp_sink.set_volume(127);
+      writeTextToDisplay(true, (char*)"", (char*)"Bluetooth connected", (char*)a2dp_sink.get_peer_name());
     } else {
-      writeTextToDisplay(1, "", "Bluetooth disconnected", "");
+      writeTextToDisplay(true, (char*)"", (char*)"Bluetooth disconnected", (char*)"");
     }
     clearFlag(bt_state_changed);
   }
 
-  if(checkFlag(audio_state_changed) && checkFlag(bt_connected) && disp_mode==0){      // mute external DAC when not playing; bt_connected ensures no "Connected, paused" is displayed, seems that the audio_state_changed callback comes late
+  if(checkFlag(audio_state_changed) && checkFlag(flag_bt_connected) && disp_mode == 0){
     if(checkFlag(bt_audio_playing)){
-      digitalWrite(PCM_MUTE_CTL, HIGH);
-      setFlag(DIS_forceUpdate);              // force reprinting of audio metadata when the music is playing
+      digitalWrite(PCM_MUTE_CTL, HIGH); // Снимаем аппаратный софт-мьют ЦАП
+      setFlag(DIS_forceUpdate);
     } else {
-      digitalWrite(PCM_MUTE_CTL, LOW);
-      writeTextToDisplay(1, "Bluetooth connected", "Paused", "");
+      digitalWrite(PCM_MUTE_CTL, LOW);  // Аппаратный мьют ЦАП при паузе
+      writeTextToDisplay(true, (char*)"Bluetooth connected", (char*)"Paused", (char*)"");
     }
     clearFlag(audio_state_changed);
   }
 }
 
-/* a2dp_shutdown() — gracefully stop Bluetooth and restart the ESP32.
- *
- * Triggered by canProcessTask when CAN ID 0x501 with data[3]=0x18 is received,
- * which indicates the radio/head unit is shutting down.
- *
- * Note: ESP.restart() is used as a crude workaround because calling
- *       a2dp_sink.end() followed by a2dp_sink.start() causes Bluetooth stack
- *       issues that prevent clean reconnection.  The restart ensures a clean
- *       Bluetooth stack state on the next car start.  The lines after
- *       ESP.restart() are unreachable but kept for documentation purposes.
- */
-// ID 0x501 DB3 0x18 indicates imminent shutdown of the radio and display; disconnect from source
-void a2dp_shutdown(){
+// ============================================================================
+// Управление воспроизведением AVRCP (Play, Pause, Next, Prev)
+// ============================================================================
+void a2dp_play()     { a2dp_sink.play(); }
+void a2dp_pause()    { a2dp_sink.pause(); }
+void a2dp_next()     { a2dp_sink.next(); }
+void a2dp_previous() { a2dp_sink.previous(); }
+
+// ============================================================================
+// Остановка службы A2DP и выключение питания
+// ============================================================================
+void a2dp_stop(){
   vTaskSuspend(canMessageDecoderTaskHandle);
-  //vTaskSuspend(canWatchdogTaskHandle);
-  ESP.restart();                            // very crude workaround until I find a better way to deal with reconnection problems after end() is called
-  delay(1000);
-  a2dp_sink.disconnect();
+  digitalWrite(PCM_MUTE_CTL, LOW);
   a2dp_sink.end();
-  clearFlag(ehu_started);                            // so it is possible to restart and reconnect the source afterwards in the rare case radio is shutdown but ESP32 is still powered up
-  clearFlag(a2dp_started);                           // while extremely unlikely to happen in the vehicle, this comes handy for debugging on my desk setup
-  DEBUG_PRINTLN("CAN: EHU went down! Disconnecting A2DP.");
+  vTaskDelay(pdMS_TO_TICKS(50));
+  if (tx_handle != NULL) {
+    i2s_channel_disable(tx_handle);
+    i2s_del_channel(tx_handle);
+    tx_handle = NULL;
+  }
+  clearFlag(a2dp_started);
+  DEBUG_PRINTLN("[A2DP] Service Stopped & I2S Channel Freed");
+}
+
+void a2dp_shutdown(){
+  a2dp_stop();
+  ESP.restart();
 }
