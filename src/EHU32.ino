@@ -94,6 +94,7 @@ void a2dp_play();
 void a2dp_pause();
 void a2dp_next();
 void a2dp_previous();
+void a2dp_reconnect();
 void a2dp_stop();
 void a2dp_shutdown();
 
