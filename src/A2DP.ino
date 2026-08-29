@@ -268,6 +268,7 @@ void a2dp_play()     { a2dp_sink.play(); }
 void a2dp_pause()    { a2dp_sink.pause(); }
 void a2dp_next()     { a2dp_sink.next(); }
 void a2dp_previous() { a2dp_sink.previous(); }
+void a2dp_reconnect() { a2dp_sink.reconnect(); }
 
 // ============================================================================
 // Остановка службы A2DP и выключение питания
