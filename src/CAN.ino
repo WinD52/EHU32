@@ -49,6 +49,7 @@ void a2dp_play();
 void a2dp_pause();
 void a2dp_next();
 void a2dp_previous();
+void a2dp_reconnect();
 
 void canActionEhuButton0(bool btn_state, unsigned int btn_ms_held);
 void canActionEhuButton1(bool btn_state, unsigned int btn_ms_held);
@@ -393,6 +394,7 @@ void canProcessTask(void *pvParameters){
           setFlag(ehu_started);
           disp_mode = 0;
         } else if(checkFlag(a2dp_started) && !checkFlag(ehu_started)){
+          a2dp_reconnect(); // Активный вызов телефона при повторном включении магнитолы
           setFlag(ehu_started);
         }
         
