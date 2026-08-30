@@ -23,7 +23,7 @@
 * ⚡ **Автомобильный умный сон (Deep Sleep):** Потребление всего **15 мкА** в спящем режиме. Плата просыпается за 10 мс при появлении пакетов в шине и засыпает через 100 мс после отключения зажигания.
 * 📡 **Беспроводное обновление по Wi-Fi (OTA):** Включение точки доступа `EHU32-XXXX` (пароль `ehu32updater`) по удержанию кнопки **8** на магнитоле.
 
-[![Нажми здесь чтоб посмотреть EHU32 демо на YouTube](https://img.youtube.com/vi/CZvhz3yvV1g/0.jpg)](https://www.youtube.com/watch?v=CZvhz3yvV1g) [![Click here to watch EHU32 demo on YouTube](https://img.youtube.com/vi/cj5L4aGAB5w/0.jpg)](https://www.youtube.com/watch?v=cj5L4aGAB5w)
+[![Нажми здесь чтоб посмотреть EHU32 демо на YouTube](https://img.youtube.com/vi/CZvhz3yvV1g/0.jpg)](https://www.youtube.com/watch?v=CZvhz3yvV1g) [![Нажми здесь чтоб посмотреть EHU32 демо на YouTube](https://img.youtube.com/vi/cj5L4aGAB5w/0.jpg)](https://www.youtube.com/watch?v=cj5L4aGAB5w)
 
 ---
 
