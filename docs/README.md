@@ -1,70 +1,65 @@
-# EHU32 Documentation
+# 📚 Центр документации EHU32 (Documentation Hub)
 
-Welcome to the EHU32 documentation hub. EHU32 brings Bluetooth audio to Opel/Vauxhall vehicles by integrating with the onboard display and radio over MS-CAN.
-This fork adds a transliteration function for Cyrillic song tags to Latin to the original code.
-Track switching using the media buttons (left-previous, right-next) has also been added. To switch tracks, hold the button (approximately 400ms) to prevent the default function from triggering and switching tracks simultaneously.
+[← На главную страницу проекта (README.md)](../README.md)
 
-← [Back to main README](../README.md) | [EHU32_wiring.pdf](../EHU32_wiring.pdf)
+Добро пожаловать в единый центр документации шлюза **EHU32**. Вся техническая база знаний, электрические схемы и руководства структурированы по 4 основным разделам:
 
 ---
 
-## Supported Radios
+## 📑 Разделы документации
 
-| Radio | Manufacturer | AUX | Status |
-|-------|-------------|-----|--------|
-| CD30 | Delphi/Grundig | Internal | Supported |
-| CD30 MP3 | Delphi/Grundig | Internal | Supported |
-| CD40 USB | Delphi | Factory | Supported |
-| CDC40 Opera | Blaupunkt / Delphi | Via DAB emulation | In Progress — see [Issue #19](https://github.com/PNKP237/EHU32/issues/19) |
-| CD70 Navi | Siemens/VDO | Internal | Supported (best documented) |
-| DVD90 Navi | Siemens/VDO | Internal | In Progress — see [Issue #16](https://github.com/PNKP237/EHU32/issues/16) |
-
-## Supported Displays
-
-| Display | Description |
-|---------|-------------|
-| CID | Colour Information Display |
-| GID (single-line) | Graphic Information Display, one text line |
-| GID (three-line) | Graphic Information Display, three text lines |
-| BID | Basic Information Display |
-| TID | Trip Information Display |
+```text
+docs/
+├── 1. hardware.md        ──► Аппаратная часть, BOM, распиновка, ЦАП и питание
+├── 2. radios-install.md  ──► Установка во все магнитолы Opel и разводка Quadlock/OBD
+├── 3. compilation.md     ──► Сборка в PlatformIO, прошивка USB/OTA/OTG
+└── 4. troubleshooting.md ──► Устранение помех, база знаний и FAQ
+```
 
 ---
 
-## Documentation Index
-
-| File | Description |
-|------|-------------|
-| [hardware-overview.md](hardware-overview.md) | Bill of materials, ESP32 pin assignments, wiring overview |
-| [can-bus-connection.md](can-bus-connection.md) | MS-CAN bus details, access points, transceiver selection |
-| [power-supply.md](power-supply.md) | Power options: PCB 5V, buck converter, USB charger |
-| [aux-audio-connection.md](aux-audio-connection.md) | PCM5102A setup, AUX wiring, ground loop notes |
-| [compilation-guide.md](compilation-guide.md) | Arduino IDE settings, sdkconfig, flashing |
-| [troubleshooting.md](troubleshooting.md) | Common issues and fixes |
-| [faq.md](faq.md) | Frequently asked questions |
-| **Community knowledge** | |
-| [known-issues-and-solutions.md](known-issues-and-solutions.md) | Recurring problems and confirmed solutions from community discussions |
-| [community-knowledge.md](community-knowledge.md) | ESP32 board compatibility, display limits, data availability, device tips |
-| [radio-specific-notes.md](radio-specific-notes.md) | Radio-specific technical details: CD30, CD40, CD70, DVD90, CDC40 Opera |
-| **Installation guides** | |
-| [installation-cd30-cd30mp3.md](installation-cd30-cd30mp3.md) | CD30 / CD30 MP3 internal installation |
-| [installation-cd40usb.md](installation-cd40usb.md) | CD40 USB internal installation |
-| [installation-cd70-navi.md](installation-cd70-navi.md) | CD70 Navi internal installation |
-| [installation-dvd90-navi.md](installation-dvd90-navi.md) | DVD90 Navi installation (in progress) |
-| [installation-cdc40-opera.md](installation-cdc40-opera.md) | CDC40 Opera (in progress) |
+### 1. 🧰 [Аппаратная часть и схемотехника (hardware.md)](hardware.md)
+* **Список компонентов (BOM):** выбор оригинальных модулей ESP32-WROOM с разъёмом IPX, защитные экраны.
+* **Таблица распиновки:** точное назначение всех выводов ESP32 (I2S, Mute, Enable, CAN TX/RX).
+* **Конфигурация джамперов ЦАПа PCM5102A:** правильное положение перемычек `FLT`, `DEMP`, `XSMT`, `FMT`, фиксация `SCK` на землю.
+* **Выбор CAN-трансивера:** сравнение 3.3В трансиверов (SN65HVD230) и 5В (MCP2551, TJA1050).
+* **Схемы питания:** линейный LDO-стабилизатор KF50BD, импульсные DC-DC с LC-фильтрами, развязка аудиоземли AGND.
 
 ---
 
-## Quick Start
+### 2. 🚗 [Руководство по установке во все магнитолы (radios-install.md)](radios-install.md)
+* **Распиновка разъёма Quadlock (Fakra 40-pin):** универсальное подключение питания, CAN-шины и сервисных пинов AUX.
+* **Бескровное подключение через OBD-II:** распиновка диагностической колодки в тоннеле под ручником.
+* **Особенности установки по моделям:**
+  * `CD30 / CD30 MP3` (Delphi-Grundig): активация AUX, согласование уровней, внутренняя распайка.
+  * `CD40 USB` (Delphi): запрет питания от штатного USB, устранение фона плавающей аудиоземли.
+  * `CD70 Navi / DVD90 Navi` (Siemens VDO): внутренняя интеграция, требование наличия привода CD.
+  * `CDC40 Opera` (Blaupunkt / Delphi): эмуляция блока цифрового радио DAB45 (кадры `0x50D` и `0x562`) для открытия скрытого входа AUX.
 
-1. Read [hardware-overview.md](hardware-overview.md) for the bill of materials and wiring diagram.
-2. Choose your radio's installation guide from the table above.
-3. Follow [compilation-guide.md](compilation-guide.md) to build and flash the firmware.
-4. If something isn't working, check [troubleshooting.md](troubleshooting.md).
+---
 
-## Links
+### 3. 💻 [Инструкция по сборке и прошивке (compilation.md)](compilation.md)
+* **Быстрый старт в VS Code (PlatformIO):** пошаговая сборка на ядре Arduino Core 3.1.0 / ESP-IDF 5.3.0.
+* **Карта памяти Dual-OTA (`min_spiffs.csv`):** описание таблицы разделов Flash-памяти.
+* **Полная очистка памяти (Erase Flash):** сброс повреждённых ключей NVS перед первой установкой.
+* **Беспроводная прошивка Wi-Fi OTA:** запуск точки доступа кнопкой 8, авторизация, прошивка по воздуху.
+* **Прошивка со смартфона по USB-OTG:** инструкция для приложения ESPflash на Android (смещение `0x10000`).
 
-- [Main README](../README.md)
-- [EHU32_wiring.pdf](../EHU32_wiring.pdf)
-- [GitHub repository](https://github.com/PNKP237/EHU32)
-- [Wiki](https://github.com/PNKP237/EHU32/wiki)
+---
+
+### 4. 🛠️ [Устранение неисправностей, база знаний и FAQ (troubleshooting.md)](troubleshooting.md)
+* **Проблемы со звуком:** фильтрация высокочастотного свиста генератора, устранение земляных петель (Ground Loop Isolator).
+* **Диагностика поддельных чипов ESP32:** как отличить оригинальный чип Espressif от клонов с медленной памятью BoyaMicro.
+* **Специфика шины и экранов:** ограничения однострочных экранов BID/TID, параллельное срабатывание меню при нажатии ролика OK (`0x84`), уступка кнопки Play/Pause штатному блоку UHP4.
+* **Часто задаваемые вопросы (FAQ):** совместимость с iPhone (SBC 345 кбит/с), энергопотребление в глубоком сне (15 мкА).
+
+---
+
+## 📋 Таблица совместимости
+
+| Модель магнитолы | Поддерживаемые дисплеи | Метод интеграции AUX |
+|:---|:---|:---|
+| **CD30 / CD30 MP3** | BID, TID, GID (2/3 строки), CID | Прямой AUX (Quadlock или плата) |
+| **CD40 USB** | GID, CID | Прямой AUX (через изолятор земли) |
+| **CD70 Navi / DVD90** | GID, CID | Прямой AUX (Quadlock или плата) |
+| **CDC40 Opera** | GID, CID | Эмуляция внешнего блока DAB45 по CAN |
