@@ -288,8 +288,6 @@ void canProcessTask(void *pvParameters){
         if (RxMsg.data_length_code < 4) break;
         if(checkFlag(a2dp_started) && RxMsg.data[3] == 0x18){
           a2dp_shutdown();
-        } else if(RxMsg.data[3] != 0x18){
-          xTaskNotifyGive(canWatchdogTaskHandle); // Кормим Watchdog от активного питания
         }
         break;
       }
