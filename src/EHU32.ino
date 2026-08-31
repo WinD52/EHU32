@@ -39,7 +39,7 @@
 #define disp_mode_changed          (1 << 10)  // Смена режима экрана (вывод статуса "No data yet...")
 #define CAN_allowAutoRefresh       (1 << 11)  // Режим AUX подтвержден магнитолой -> перехват экрана разрешен
 #define ECC_present                (1 << 12)  // Присутствие блока климат-контроля ECC в шине
-#define ehu_started                (1 << 13)  // Магнитола включена (принят первый кадр 0x6C1 или 0x501)
+#define ehu_started                (1 << 13)  // Магнитола включена (принят первый кадр 0x6C1)
 #define a2dp_started               (1 << 14)  // Стек Bluetooth A2DP успешно запущен
 #define flag_bt_connected          (1 << 15)  // Смартфон подключен по Bluetooth
 #define bt_state_changed           (1 << 16)  // Изменение статуса подключения Bluetooth
