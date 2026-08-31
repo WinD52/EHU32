@@ -221,9 +221,6 @@ void a2dp_init(){
   // Установка номинальной мощности Bluetooth (+6 dBm)
   esp_bredr_tx_power_set(ESP_PWR_LVL_P6, ESP_PWR_LVL_P6);
 
-  // Активный вызов последнего сопряженного телефона по сохраненному MAC-адресу
-  a2dp_sink.reconnect();
-
   setFlag(a2dp_started);
   DEBUG_PRINTLN(">>> [A2DP] Bluetooth Stack is ONLINE and DISCOVERABLE! <<<");
   disp_mode = 0;
@@ -234,8 +231,24 @@ void a2dp_init(){
 // A2DP_EventHandler — Диспетчеризация событий связи и софт-мьюта ЦАПа
 // ============================================================================
 void A2DP_EventHandler(){
+  static unsigned long last_reconnect_attempt = 0;
+  static unsigned long reconnect_cooldown = 1500; // Пауза 1.5 сек перед первым запросом
+
   if(checkFlag(ehu_started) && !checkFlag(a2dp_started)){
     a2dp_init();
+    last_reconnect_attempt = millis(); // Фиксируем точный момент старта Bluetooth
+  }
+
+  // Диспетчер автоподключения: опрашивает телефон только в статусе DISCONNECTED
+  if(checkFlag(ehu_started) && checkFlag(a2dp_started)){
+    if(a2dp_sink.get_connection_state() == ESP_A2D_CONNECTION_STATE_DISCONNECTED){
+      if(millis() - last_reconnect_attempt >= reconnect_cooldown){
+        last_reconnect_attempt = millis();
+        bool success = a2dp_sink.reconnect();
+        DEBUG_PRINTF("[A2DP] state=DISCONNECTED -> reconnect() result=%s\n", success ? "ACCEPTED" : "REJECTED");
+        reconnect_cooldown = success ? 10000 : 1500;
+      }
+    }
   }
 
   if(checkFlag(DIS_forceUpdate) && disp_mode == 0 && checkFlag(CAN_allowAutoRefresh) && checkFlag(bt_audio_playing)){
@@ -291,6 +304,6 @@ void a2dp_stop(){
 }
 
 void a2dp_shutdown(){
-  a2dp_stop();
+  vTaskSuspend(canMessageDecoderTaskHandle);
   ESP.restart();
 }
