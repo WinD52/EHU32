@@ -613,7 +613,9 @@ void canMessageDecoder(void *pvParameters){
 void prepareMultiPacket(int bytesProcessed, char* buffer_to_read){
   if (bytesProcessed <= 0) return;
   if (bytesProcessed > 254) bytesProcessed = 254;
-
+  // Очищаем весь массив 1024 байта нулями перед упаковкой:
+  memset(CAN_MsgArray, 0, sizeof(CAN_MsgArray)); 
+  // Нарезаем свежие данные...
   int packetCount = bytesProcessed / 7, bytesToProcess = bytesProcessed % 7;
   unsigned char frameIndex = 0x20;
   for(int i = 0; i < packetCount; i++){
