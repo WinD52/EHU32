@@ -392,7 +392,7 @@ void canProcessTask(void *pvParameters){
           setFlag(ehu_started);
           disp_mode = 0;
         } else if(checkFlag(a2dp_started) && !checkFlag(ehu_started)){
-          a2dp_reconnect(); // Активный вызов телефона при повторном включении магнитолы
+          a2dp_reconnect(); 
           setFlag(ehu_started);
         }
         
