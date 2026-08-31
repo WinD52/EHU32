@@ -137,7 +137,7 @@ void setup(){
   delay(20);
 
   DEBUG_SERIAL(115200);
-  DEBUG_PRINTLN("\n=== EHU32 2.0 START (115200) ===");
+  DEBUG_PRINTLN("\n=== EHU32 START (115200) ===");
 
   // 1. Инициализация объектов синхронизации FreeRTOS до запуска драйверов
   CAN_MsgSemaphore = xSemaphoreCreateMutex();
