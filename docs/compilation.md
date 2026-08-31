@@ -58,7 +58,7 @@
   ```bash
   pio run -t erase
   ```
-* **Через графический интерфейс:** В меню PlatformIO (иконка 👽 слева) выберите **`Project Tasks` ➔ `esp32_ehu32_v2` ➔ `Platform` ➔ `Erase Flash`**.
+* **Через графический интерфейс:** В меню PlatformIO (иконка 👽 слева) выберите **`Project Tasks` ➔ `esp32_ehu32` ➔ `Platform` ➔ `Erase Flash`**.
 * После стирания запустите стандартную прошивку `pio run -t upload`.
 
 ---
@@ -101,7 +101,7 @@
 
 1. Установите приложение **ESPflash** (или **Serial USB Terminal**) из Google Play.
 2. Подключите плату ESP32 к разъёму Type-C смартфона через стандартный **USB-OTG адаптер**.
-3. Скомпилированный файл прошивки `firmware.bin` (находится в папке проекта `.pio/build/esp32_ehu32_v2/firmware.bin`) сохраните в память телефона.
+3. Скомпилированный файл прошивки `firmware.bin` (находится в папке проекта `.pio/build/esp32_ehu32/firmware.bin`) сохраните в память телефона.
 4. В приложении ESPflash:
    * Выберите чип: **ESP32**.
    * Выберите файл `firmware.bin`.
