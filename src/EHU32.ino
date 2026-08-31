@@ -1,7 +1,7 @@
 /*
  * EHU32.ino — Main entry point, global state, RTOS task creation and setup routine
  *
- * Project: EHU32 1.0 (Opel MS-CAN Bluetooth Audio Gateway)
+ * Project: EHU32 (Opel MS-CAN Bluetooth Audio Gateway)
  * Original Author: PNKP237 — https://github.com/PNKP237/EHU32
  * Author & Maintainer: WinD52 — https://github.com/WinD52/EHU32
  *
