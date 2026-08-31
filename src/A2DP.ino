@@ -218,8 +218,11 @@ void a2dp_init(){
   DEBUG_PRINTF("[A2DP] Starting Bluetooth sink service with name: \"%s\"...\n", BT_DEVICE_NAME);
   a2dp_sink.start(BT_DEVICE_NAME);
   
-  // Установка номинальной мощности Bluetooth Classic (+6 dBm / ESP_PWR_LVL_P6)
+  // Установка номинальной мощности Bluetooth (+6 dBm)
   esp_bredr_tx_power_set(ESP_PWR_LVL_P6, ESP_PWR_LVL_P6);
+
+  // Активный вызов последнего сопряженного телефона по сохраненному MAC-адресу
+  a2dp_sink.reconnect();
 
   setFlag(a2dp_started);
   DEBUG_PRINTLN(">>> [A2DP] Bluetooth Stack is ONLINE and DISCOVERABLE! <<<");
