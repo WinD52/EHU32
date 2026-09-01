@@ -77,6 +77,7 @@ volatile int disp_mode = -1;
 // Таймштампы ограничения частоты событий
 unsigned long last_millis = 0, last_millis_req = 0, last_millis_disp = 0, last_millis_aux = 0;
 bool vehicle_ECC_present, vehicle_UHP_present;
+volatile bool rev_engaged = false; // Флаг включения задней передачи (0x4E8)
 
 // Прототипы функций задач и системных обработчиков
 void canReceiveTask(void* pvParameters);
