@@ -5,7 +5,7 @@
  * Original Author: PNKP237 — https://github.com/PNKP237/EHU32
  * Author & Maintainer: WinD52 — https://github.com/WinD52/EHU32
  *
- * Version: v1.0.0-alpha (Modern Platform Baseline: ESP-IDF 5.3 / Arduino Core 3.1)
+ * Modern Platform Baseline: ESP-IDF 5.3 / Arduino Core 3.1
  *
  * Centralized pin definitions, CAN bus identifiers and system build options.
  * Target platforms: Opel/Vauxhall Astra H, Zafira B, Vectra C, Signum, Corsa D.
@@ -22,7 +22,7 @@
 // ============================================================================
 // Конфигурация прошивки и идентификаторы Bluetooth
 // ============================================================================
-#define EHU32_VERSION "1.0.0-alpha"
+#define EHU32_VERSION "1.0.0-alfa"
 #define BT_DEVICE_NAME "Astra H Bluetooth"
 
 // ============================================================================
