@@ -5,7 +5,7 @@
  * Original Author: PNKP237 — https://github.com/PNKP237/EHU32
  * Author & Maintainer: WinD52 — https://github.com/WinD52/EHU32
  *
- * Version: v1.0.0-alpha (Modern Platform Baseline: ESP-IDF 5.3 / Arduino Core 3.1)
+ * Modern Platform Baseline: ESP-IDF 5.3 / Arduino Core 3.1
  *
  * Audio Architecture:
  *   - Native ESP-IDF 5.x I2S Standard driver (driver/i2s_std.h)
