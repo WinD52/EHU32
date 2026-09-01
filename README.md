@@ -62,7 +62,6 @@
 ## 👥 Авторы и благодарности
 
 - **[PNKP237](https://github.com/PNKP237/EHU32)** — Автор оригинальной концепции и кодовой базы.
-- **[WinD52](https://github.com/WinD52/EHU32)** — Модификация проекта, адаптация под ESP-IDF 5.x / Core 3.x, 32-bit DSP калибровка Line-In, транслитерация кириллицы.
 - **[BxnnyG](https://github.com/BxnnyG/EHU32)** — Документирование структуры регистров.
 - **[JJToB](https://github.com/JJToB/Car-CAN-Message-DB)** — Реверс-инжиниринг базы сообщений Opel MS-CAN.
 - **[pschatzmann](https://github.com/pschatzmann/ESP32-A2DP)** — Библиотека ESP32-A2DP.
