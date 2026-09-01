@@ -25,6 +25,7 @@ static BluetoothA2DPSink a2dp_sink;
 static i2s_chan_handle_t tx_handle = NULL;
 static uint32_t current_sample_rate = 44100;
 static volatile uint16_t pending_sample_rate = 0;
+extern volatile bool rev_engaged;
 
 // 32-битный статический DSP буфер для линейной обработки сэмплов
 static int32_t dsp_buffer_32bit[512];
@@ -61,9 +62,9 @@ static void audio_data_stream_32bit_dsp(const uint8_t *data, uint32_t length) {
       int32_t s32 = ((int32_t)src[processed + i]) << 16;
 
       // 2. Чистое линейное масштабирование 0.50x (-6.02 dBFS Headroom)
-      // Опускает пиковый размах 2.1 Vrms точно до 1.05 Vrms (стандарт входа AUX CD30).
-      // Все 16 бит исходного звука сохраняются на 100% без усечения и без нелинейной "каши"!
-      s32 = s32 >> 1;
+      // Опускает пиковый размах 2.1 Vrms точно до 1.05 Vrms (стандарт входа AUX CD30). Вперед (Drive/N/P): 0.50x.
+      // Задний ход: 0.125x (-18.06 dBFS / ~0.26 Vrms) — мягкое приглушение для парктроников
+      s32 = rev_engaged ? (s32 >> 3) : (s32 >> 1);
 
       dsp_buffer_32bit[i] = s32;
     }
