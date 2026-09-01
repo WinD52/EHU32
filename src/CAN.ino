@@ -413,6 +413,12 @@ void canProcessTask(void *pvParameters){
         if(!checkFlag(ECC_present)) setFlag(ECC_present);
         break;
       }
+      case CAN_ID_RESERVED_4E8: {
+        if (RxMsg.data_length_code >= 7) {
+          rev_engaged = (RxMsg.data[6] & 0x04) != 0;
+        }
+        break;
+      }
       default:    break;
     }
   }
