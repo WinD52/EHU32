@@ -212,31 +212,45 @@ void canProcessTask(void *pvParameters){
         uint8_t hold  = RxMsg.data[2];
 
         // ============================================================
-        // КНОПКА OK (0x84) — 100% ОРИГИНАЛЬНЫЙ КОД WinD52
+        // КНОПКА OK (0x84) Левого блока рулевых кнопок (Нажатие на колёсико)
         // ============================================================
         if (btn == 0x84) {
-          static bool triggered = false;
-          if (state == 0x01 && hold >= 4 && !triggered) {
-            triggered = true;
-            if (disp_mode == 0) {
-              disp_mode = 1;
-              setFlag(disp_mode_changed);
+          if (!vehicle_UHP_present) {
+            // Без UHP4: мгновенный отклик (hold >= 400 мс)
+            static bool triggered = false;
+            if (state == 0x01 && hold >= 4 && !triggered) {
+              triggered = true;
+              disp_mode = (disp_mode == 0) ? 1 : 0;
+              if (disp_mode == 1) setFlag(disp_mode_changed);
               setFlag(DIS_forceUpdate);
-              DEBUG_PRINTLN("DISP_MODE: Switching to vehicle data...");
-            } else {
-              disp_mode = 0;
-              setFlag(DIS_forceUpdate);
-              DEBUG_PRINTLN("DISP_MODE: Switching to audio metadata");
+              DEBUG_PRINTLN("DISP_MODE: Toggled display mode");
             }
-          }
-          if (state == 0x00) {
-            triggered = false;
+            if (state == 0x00) {
+              triggered = false;
+            }
+          } else {
+            // С UHP4: строго по событию отпускания (state == 0x00)
+            if (state == 0x00) {
+              if (hold >= 4 && hold < 20) {
+                // Удержание 400..1999 мс -> Play / Pause toggle
+                if (checkFlag(bt_audio_playing)) a2dp_pause();
+                else a2dp_play();
+                DEBUG_PRINTLN("SWC: UHP4 Play/Pause toggle (400-2000ms)");
+              } else if (hold >= 20) {
+                // Удержание >= 2000 мс (2.0 сек) -> смена экранов (0 <-> 1)
+                disp_mode = (disp_mode == 0) ? 1 : 0;
+                if (disp_mode == 1) setFlag(disp_mode_changed);
+                setFlag(DIS_forceUpdate);
+                DEBUG_PRINTLN("SWC: UHP4 Display mode toggle (>=2000ms)");
+              }
+              // hold < 4: короткий клик (<400 мс) пропускаем в штатный БК машины
+            }
           }
           break;
         }
 
         // ============================================================
-        // ОСТАЛЬНЫЕ КНОПКИ (0x81, 0x91, 0x92) — 100% ОРИГИНАЛ WinD52
+        // ОСТАЛЬНЫЕ КНОПКИ (0x81, 0x91, 0x92)
         // ============================================================
         if (checkFlag(flag_bt_connected) && state == 0x00 && checkFlag(CAN_allowAutoRefresh)) {
           switch (btn) {
