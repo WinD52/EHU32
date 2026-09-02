@@ -1,5 +1,5 @@
 /*
- * config.h — Central configuration file for EHU32 1.0.0-alfa
+ * config.h — Central configuration file for EHU32
  *
  * Project: EHU32 (Opel MS-CAN Bluetooth Audio Gateway)
  * Original Author: PNKP237 — https://github.com/PNKP237/EHU32
