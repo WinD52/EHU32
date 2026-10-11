@@ -66,8 +66,8 @@ Bluetooth-аудио для автомобилей GM/Opel на базе ESP32 �
 ## 👥 Авторы и благодарности
 
 * **[PNKP237](https://github.com/PNKP237/EHU32)** — оригинальный проект EHU32.
-* **[BxnnyG](https://github.com/BxnnyG/EHU32)** — документация и развитие проекта.
-* **[JJToB](https://github.com/JJToB/Car-CAN-Message-DB)** — база сообщений Opel MS-CAN.
+* **[BxnnyG](https://github.com/BxnnyG/EHU32)** — Формирование документации и упорядовачивание проекта.
+* **[JJToB](https://github.com/JJToB/Car-CAN-Message-DB)** — формирование и обоснование базы знаний по CAN Opel.
 * **[pschatzmann](https://github.com/pschatzmann/ESP32-A2DP)** — ESP32-A2DP.
 * **[NexTPL](https://github.com/NexTPL/EHU32)** — определение заднего хода по MS-CAN.
 
